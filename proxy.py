@@ -79,7 +79,7 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(response.content)
 
     def do_GET(self):
-        if self.path.startswith('/get'):
+        if self.path == '/get':
             key = self._parse_key_from_path()
             # Determine the node that contains the key
             node = self.hash_ring.get_node(key)
@@ -91,6 +91,29 @@ class ProxyRequestHandler(BaseHTTPRequestHandler):
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
                 self.wfile.write(json.dumps({'message': 'Key not found.'}).encode())
+        elif self.path == '/get_node_pairs':
+            # Get all keys of a respective node
+            node = self.headers.get('Node')
+            if node is not None:
+                url = f'http://{node}/get_node_pairs'
+                self._forward_request(node, url)
+            else:
+                self.send_response(400)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'message': 'Node not specified'}).encode())
+        elif self.path == '/get_all_pairs':
+            # Get keys from all nodes:
+            pairs = []
+            for node in self.hash_ring.nodes:
+                url = f'http://{node}/get_node_pairs'
+                response = requests.get(url)
+                if response.status_code == 200:
+                    pairs.append(json.loads(response.content).get('Key-Value Pairs'))
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'Key-Value pairs': pairs}).encode())
         else:
             self.send_response(404)
             self.send_header('Content-Type', 'application/json')

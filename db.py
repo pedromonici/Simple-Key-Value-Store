@@ -18,6 +18,9 @@ class DistributedKeyValueStore:
         if key in self.store:
             del self.store[key]
 
+    def get_all_pairs(self):
+        return self.store
+
 
 class NodeRequestHandler(BaseHTTPRequestHandler):
     store = DistributedKeyValueStore()
@@ -57,6 +60,13 @@ class NodeRequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps({'message': 'Key deleted successfully.'}).encode())
 
+    def _get_node_pairs(self):
+        pairs = self.store.get_all_pairs()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps({'Key-Value Pairs': pairs}).encode())
+
     def do_PUT(self):
         if self.path == '/set':
             content_length = int(self.headers['Content-Length'])
@@ -71,9 +81,11 @@ class NodeRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'message': 'Endpoint not found.'}).encode())
 
     def do_GET(self):
-        if self.path.startswith('/get'):
+        if self.path == '/get':
             key = self.path.split('?')[1].split('=')[1]
             self._get_key(key)
+        elif self.path == '/get_node_pairs':
+            self._get_node_pairs()
         else:
             self.send_response(404)
             self.send_header('Content-Type', 'application/json')
